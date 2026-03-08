@@ -384,11 +384,11 @@ html, body {
 
 /* Mini mode button */
 #btn-mini {
-  width: 28px;
+  width: 32px;
   height: 28px;
-  border: none;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-secondary);
   cursor: pointer;
   display: flex;
@@ -396,11 +396,13 @@ html, body {
   justify-content: center;
   transition: all 0.2s;
   -webkit-app-region: no-drag;
+  margin-left: 8px;
 }
 
 #btn-mini:hover {
-  background: var(--border);
-  color: var(--text-primary);
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
 }
 
 /* Mini mode */
