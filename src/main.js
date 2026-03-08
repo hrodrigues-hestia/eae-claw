@@ -351,25 +351,24 @@ async function handleFileDrop(files) {
     const sizeMb = (file.size / 1024 / 1024).toFixed(1);
     addMessage("user", `📎 ${file.name} (${sizeMb} MB)`, new Date());
 
-    // Read file content based on type
-    let messageText = "";
-
-    if (file.type.startsWith("text/") || file.name.match(/\.(md|json|txt|csv|log|js|ts|py|rs|toml|yaml|yml|xml|html|css|sql|sh|bat|ps1)$/i)) {
-      // Text files - read content directly
-      const text = await file.text();
-      const truncated = text.length > 50000 ? text.substring(0, 50000) + "\n\n[...truncado, arquivo muito grande]" : text;
-      messageText = `Arquivo: ${file.name}\n\n\`\`\`\n${truncated}\n\`\`\``;
-    } else if (file.type.startsWith("image/")) {
-      // Images - send as base64
-      const base64 = await fileToBase64(file);
-      messageText = `[Imagem: ${file.name}]\n${base64}`;
-    } else {
-      // Other files - just notify
-      messageText = `Arquivo recebido: ${file.name} (${file.type || "tipo desconhecido"}, ${sizeMb} MB). Não consigo ler esse formato diretamente, mas posso ajudar se você colar o conteúdo.`;
-    }
-
     showTyping();
     try {
+      // Save file to shared folder for the VM to read
+      if (tauriFs && tauriPath) {
+        const appDataDir = await tauriPath.appDataDir();
+        const sharedDir = `${appDataDir}shared/`;
+        const dirExists = await tauriFs.exists(sharedDir);
+        if (!dirExists) {
+          await tauriFs.mkdir(sharedDir, { recursive: true });
+        }
+        // Read file as bytes and write to shared folder
+        const arrayBuffer = await file.arrayBuffer();
+        await tauriFs.writeFile(`${sharedDir}${file.name}`, new Uint8Array(arrayBuffer));
+      }
+
+      // Send message telling Claw about the file
+      const messageText = `[Arquivo enviado pelo Eae Claw]\nNome: ${file.name}\nTipo: ${file.type || "desconhecido"}\nTamanho: ${sizeMb} MB\nLocal: AppData/shared/${file.name}\n\nPor favor, leia e analise este arquivo.`;
+
       const res = await gatewayPost("sessions_send", {
         message: messageText,
         sessionKey: "agent:main:main",
