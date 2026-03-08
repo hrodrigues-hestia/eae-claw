@@ -1,8 +1,21 @@
 // Eae Claw - Main frontend logic
-// Communicates with OpenClaw gateway via HTTP API
+// Communicates with OpenClaw gateway via Tauri HTTP plugin (bypasses CORS)
 
 const GATEWAY_URL = "http://localhost:18789";
 const GATEWAY_TOKEN = localStorage.getItem("claw-token") || "";
+
+// Dynamic import - works in Tauri, falls back to fetch for browser dev
+let tauriFetch = null;
+async function loadTauriFetch() {
+  try {
+    const mod = await import("@tauri-apps/plugin-http");
+    tauriFetch = mod.fetch;
+    console.log("Using Tauri HTTP plugin (CORS-free)");
+  } catch {
+    tauriFetch = window.fetch.bind(window);
+    console.log("Tauri HTTP plugin not available, using browser fetch");
+  }
+}
 
 // --- State ---
 let isRecording = false;
@@ -25,7 +38,9 @@ const statusText = document.getElementById("status-text");
 // --- Init ---
 init();
 
-function init() {
+async function init() {
+  await loadTauriFetch();
+
   // Check for saved token, prompt if missing
   if (!GATEWAY_TOKEN) {
     promptToken();
@@ -68,20 +83,25 @@ function promptToken() {
   }
 }
 
+// --- HTTP helper (uses Tauri plugin or browser fetch) ---
+async function gatewayPost(tool, params = {}, timeoutMs = 120000) {
+  const res = await tauriFetch(`${GATEWAY_URL}/tools/invoke`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${GATEWAY_TOKEN}`,
+    },
+    body: JSON.stringify({ tool, params }),
+    connectTimeout: timeoutMs,
+  });
+  return res;
+}
+
 // --- Connection ---
 async function checkConnection() {
   setStatus("connecting");
   try {
-    // Use /tools/invoke with session_status as a health check
-    const res = await fetch(`${GATEWAY_URL}/tools/invoke`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GATEWAY_TOKEN}`,
-      },
-      body: JSON.stringify({ tool: "session_status" }),
-      signal: AbortSignal.timeout(5000),
-    });
+    const res = await gatewayPost("session_status", {}, 5000);
     if (res.ok) {
       setStatus("online");
     } else if (res.status === 401 || res.status === 403) {
@@ -96,13 +116,14 @@ async function checkConnection() {
       setStatus("offline");
       addMessage("claw", `⚠️ Gateway respondeu com status ${res.status}.`, new Date());
     }
-  } catch {
+  } catch (err) {
     setStatus("offline");
     addMessage(
       "claw",
       "⚠️ Não consegui conectar no OpenClaw em localhost:18789.\nVerifica se o port forwarding da VirtualBox tá ativo.",
       new Date()
     );
+    console.error("Connection check failed:", err);
   }
 }
 
@@ -127,20 +148,9 @@ async function sendToGateway(text) {
   showTyping();
 
   try {
-    const res = await fetch(`${GATEWAY_URL}/tools/invoke`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GATEWAY_TOKEN}`,
-      },
-      body: JSON.stringify({
-        tool: "sessions_send",
-        params: {
-          message: text,
-          sessionKey: "agent:main:main",
-        },
-      }),
-      signal: AbortSignal.timeout(120000),
+    const res = await gatewayPost("sessions_send", {
+      message: text,
+      sessionKey: "agent:main:main",
     });
 
     hideTyping();
@@ -152,7 +162,6 @@ async function sendToGateway(text) {
     }
 
     const data = await res.json();
-    // sessions_send returns the agent's reply
     const reply = extractReply(data);
     addMessage("claw", reply, new Date());
   } catch (err) {
@@ -163,9 +172,7 @@ async function sendToGateway(text) {
 
 // --- Extract reply text from various response shapes ---
 function extractReply(data) {
-  // Try common response shapes
   if (data?.result?.content) {
-    // Array of content blocks
     if (Array.isArray(data.result.content)) {
       return data.result.content
         .filter((b) => b.type === "text")
@@ -210,8 +217,6 @@ async function startRecording() {
       const base64 = await blobToBase64(blob);
 
       addMessage("user", "🎤 [áudio]", new Date(), true);
-
-      // Send audio to OpenClaw for transcription + response
       await sendAudioToGateway(base64);
     };
 
@@ -263,22 +268,10 @@ async function sendAudioToGateway(base64Audio) {
   showTyping();
 
   try {
-    // For now, send audio as a text message indicating voice
-    // TODO: integrate with Whisper transcription endpoint
-    const res = await fetch(`${GATEWAY_URL}/tools/invoke`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GATEWAY_TOKEN}`,
-      },
-      body: JSON.stringify({
-        tool: "sessions_send",
-        params: {
-          sessionKey: "agent:main:main",
-          message: "[Mensagem de voz do Eae Claw - áudio não suportado ainda, use texto por enquanto]",
-        },
-      }),
-      signal: AbortSignal.timeout(120000),
+    // TODO: integrate with Whisper transcription
+    const res = await gatewayPost("sessions_send", {
+      sessionKey: "agent:main:main",
+      message: "[Mensagem de voz do Eae Claw - áudio não suportado ainda, use texto por enquanto]",
     });
 
     hideTyping();
