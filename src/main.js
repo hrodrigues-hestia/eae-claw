@@ -23,6 +23,7 @@ let mediaRecorder = null;
 let audioChunks = [];
 let recStartTime = null;
 let recTimer = null;
+let chatHistory = JSON.parse(localStorage.getItem("claw-chat-history") || "[]");
 
 // --- DOM ---
 const messagesEl = document.getElementById("messages");
@@ -68,8 +69,29 @@ async function init() {
     }
   });
 
-  // Welcome message
-  addMessage("claw", "Eae! 🦀 Manda texto ou clica no microfone pra falar.", new Date());
+  // Welcome message or restore history
+  if (chatHistory.length > 0) {
+    restoreHistory();
+  } else {
+    addMessage("claw", "Eae! 🦀 Manda texto ou clica no microfone pra falar.", new Date());
+  }
+}
+
+function restoreHistory() {
+  for (const msg of chatHistory) {
+    const el = document.createElement("div");
+    el.className = `message ${msg.sender}`;
+    const senderName = msg.sender === "user" ? "Henrique" : "Claw 🦀";
+    const timeStr = new Date(msg.time).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    el.innerHTML = `
+      <div class="sender">${senderName}</div>
+      ${msg.isAudio ? '<div class="audio-tag">🎤 Mensagem de voz</div>' : ""}
+      <div class="text">${renderMarkdown(msg.text)}</div>
+      <div class="meta">${timeStr}</div>
+    `;
+    messagesEl.appendChild(el);
+  }
+  scrollToBottom();
 }
 
 // --- Token ---
@@ -397,6 +419,12 @@ function addMessage(sender, text, time, isAudio = false) {
 
   messagesEl.appendChild(el);
   scrollToBottom();
+
+  // Save to history
+  chatHistory.push({ sender, text, time: time.toISOString(), isAudio });
+  if (chatHistory.length > 200) chatHistory = chatHistory.slice(-200);
+  localStorage.setItem("claw-chat-history", JSON.stringify(chatHistory));
+
   return el;
 }
 
