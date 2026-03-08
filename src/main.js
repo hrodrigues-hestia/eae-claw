@@ -172,6 +172,8 @@ async function sendToGateway(text) {
 
 // --- Extract reply text from various response shapes ---
 function extractReply(data) {
+  // sessions_send returns { ok, result: { runId, status, reply, ... } }
+  if (data?.result?.reply) return data.result.reply;
   if (data?.result?.content) {
     if (Array.isArray(data.result.content)) {
       return data.result.content
@@ -183,7 +185,6 @@ function extractReply(data) {
   }
   if (data?.result?.message) return data.result.message;
   if (data?.result?.text) return data.result.text;
-  if (data?.result?.reply) return data.result.reply;
   if (data?.message) return data.message;
   if (typeof data?.result === "string") return data.result;
   return JSON.stringify(data, null, 2);
