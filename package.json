@@ -1,0 +1,16 @@
+{
+  "name": "eae-claw",
+  "version": "0.1.0",
+  "description": "Eae Claw - Desktop voice chat with OpenClaw",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "tauri": "tauri"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "vite": "^6"
+  }
+}

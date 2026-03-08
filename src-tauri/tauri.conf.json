@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicjhan/tauri-schema/master/tauri.conf.json",
+  "productName": "Eae Claw",
+  "version": "0.1.0",
+  "identifier": "com.hestiasolutions.eae-claw",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "title": "Eae Claw 🦀",
+    "windows": [
+      {
+        "title": "Eae Claw 🦀",
+        "width": 480,
+        "height": 700,
+        "resizable": true,
+        "minWidth": 360,
+        "minHeight": 500,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    }
+  }
+}
