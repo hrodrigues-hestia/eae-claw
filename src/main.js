@@ -9,6 +9,9 @@ let tauriFetch = null;
 let tauriFs = null;
 let tauriPath = null;
 let tauriShortcut = null;
+let tauriWindow = null;
+let isMiniMode = false;
+let savedBounds = null;
 async function loadTauriFetch() {
   try {
     const mod = await import("@tauri-apps/plugin-http");
@@ -31,6 +34,13 @@ async function loadTauriFetch() {
     console.log("Global shortcut plugin loaded");
   } catch {
     console.log("Global shortcut not available");
+  }
+  try {
+    const winMod = await import("@tauri-apps/api/window");
+    tauriWindow = winMod.getCurrentWindow();
+    console.log("Tauri window API loaded");
+  } catch {
+    console.log("Tauri window API not available");
   }
 }
 
@@ -165,6 +175,75 @@ async function init() {
 
   // Register F19 global hotkey
   registerGlobalHotkey();
+
+  // Mini mode button
+  const btnMini = document.getElementById("btn-mini");
+  if (btnMini) {
+    btnMini.addEventListener("click", toggleMiniMode);
+  }
+
+  // Click header in mini mode to restore
+  const header = document.getElementById("header");
+  header.addEventListener("dblclick", () => {
+    if (isMiniMode) toggleMiniMode();
+  });
+
+  // Ctrl+M for mini mode
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey && e.key === "m") {
+      e.preventDefault();
+      toggleMiniMode();
+    }
+  });
+}
+
+// --- Mini mode ---
+async function toggleMiniMode() {
+  if (!tauriWindow) return;
+
+  if (!isMiniMode) {
+    // Save current size/position
+    const factor = await tauriWindow.scaleFactor();
+    const size = await tauriWindow.outerSize();
+    const pos = await tauriWindow.outerPosition();
+    savedBounds = {
+      width: size.width / factor,
+      height: size.height / factor,
+      x: pos.x / factor,
+      y: pos.y / factor,
+    };
+
+    // Switch to mini mode
+    await tauriWindow.setDecorations(false);
+    await tauriWindow.setAlwaysOnTop(true);
+    await tauriWindow.setSize(new (await import("@tauri-apps/api/dpi")).LogicalSize(320, 60));
+
+    // Position at bottom-right of screen
+    const monitor = await tauriWindow.currentMonitor();
+    if (monitor) {
+      const screenW = monitor.size.width / factor;
+      const screenH = monitor.size.height / factor;
+      const LogicalPosition = (await import("@tauri-apps/api/dpi")).LogicalPosition;
+      await tauriWindow.setPosition(new LogicalPosition(screenW - 340, screenH - 100));
+    }
+
+    document.body.classList.add("mini-mode");
+    isMiniMode = true;
+  } else {
+    // Restore full mode
+    await tauriWindow.setDecorations(true);
+    await tauriWindow.setAlwaysOnTop(false);
+
+    if (savedBounds) {
+      const LogicalSize = (await import("@tauri-apps/api/dpi")).LogicalSize;
+      const LogicalPosition = (await import("@tauri-apps/api/dpi")).LogicalPosition;
+      await tauriWindow.setSize(new LogicalSize(savedBounds.width, savedBounds.height));
+      await tauriWindow.setPosition(new LogicalPosition(savedBounds.x, savedBounds.y));
+    }
+
+    document.body.classList.remove("mini-mode");
+    isMiniMode = false;
+  }
 }
 
 async function registerGlobalHotkey() {

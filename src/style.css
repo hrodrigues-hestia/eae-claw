@@ -382,6 +382,57 @@ html, body {
   color: var(--accent);
 }
 
+/* Mini mode button */
+#btn-mini {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  -webkit-app-region: no-drag;
+}
+
+#btn-mini:hover {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+/* Mini mode */
+body.mini-mode #chat-container,
+body.mini-mode #input-area {
+  display: none;
+}
+
+body.mini-mode #header {
+  border-bottom: none;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+}
+
+body.mini-mode .title {
+  font-size: 14px;
+}
+
+body.mini-mode .logo {
+  font-size: 18px;
+}
+
+body.mini-mode #app {
+  background: transparent;
+}
+
+body.mini-mode {
+  background: transparent;
+}
+
 /* Drag & drop */
 #chat-container.drag-over {
   background: rgba(233, 69, 96, 0.05);
