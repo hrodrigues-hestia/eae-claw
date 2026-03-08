@@ -257,7 +257,7 @@ async function toggleMiniMode() {
     }
   } catch (err) {
     console.error("Mini mode error:", err);
-    alert("Mini mode error: " + err.message);
+    alert("Mini mode error: " + (err?.message || err?.toString() || JSON.stringify(err)));
   }
 }
 
