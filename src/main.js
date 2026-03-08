@@ -84,14 +84,14 @@ function promptToken() {
 }
 
 // --- HTTP helper (uses Tauri plugin or browser fetch) ---
-async function gatewayPost(tool, params = {}, timeoutMs = 120000) {
+async function gatewayPost(tool, args = {}, timeoutMs = 120000) {
   const res = await tauriFetch(`${GATEWAY_URL}/tools/invoke`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${GATEWAY_TOKEN}`,
     },
-    body: JSON.stringify({ tool, params }),
+    body: JSON.stringify({ tool, args }),
     connectTimeout: timeoutMs,
   });
   return res;
