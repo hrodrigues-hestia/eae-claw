@@ -231,14 +231,14 @@ async function toggleMiniMode() {
       await tauriWindow.setDecorations(false);
       await tauriWindow.setSize(new LogicalSize(320, 60));
 
-      // Position at bottom-left of screen (70px from left edge)
+      // Position at bottom-left, flush to edge (over Windows widget bar)
       try {
         const { currentMonitor } = await import("@tauri-apps/api/window");
         const monitor = await currentMonitor();
         if (monitor) {
           const factor = await tauriWindow.scaleFactor();
           const screenH = Math.round(monitor.size.height / factor);
-          await tauriWindow.setPosition(new LogicalPosition(70, screenH - 100));
+          await tauriWindow.setPosition(new LogicalPosition(0, screenH - 60));
         }
       } catch (posErr) {
         console.warn("Could not position mini window:", posErr);
@@ -288,20 +288,19 @@ async function registerGlobalHotkey() {
         toggleRecording();
       }
     });
-    console.log("F19 global hotkey registered");
+    console.log("F19 global hotkey registered (push-to-talk)");
   } catch (err) {
     console.warn("Failed to register F19:", err);
-    // F19 might not be recognized, try as a fallback
-    try {
-      await tauriShortcut.register("F24", (event) => {
-        if (event.state === "Pressed") {
-          toggleRecording();
-        }
-      });
-      console.log("F24 global hotkey registered (fallback)");
-    } catch (err2) {
-      console.warn("Failed to register fallback hotkey:", err2);
-    }
+  }
+  try {
+    await tauriShortcut.register("F18", (event) => {
+      if (event.state === "Pressed") {
+        toggleMiniMode();
+      }
+    });
+    console.log("F18 global hotkey registered (mini mode toggle)");
+  } catch (err) {
+    console.warn("Failed to register F18:", err);
   }
 }
 
