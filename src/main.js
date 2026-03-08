@@ -235,8 +235,9 @@ async function startRecording() {
       const blob = new Blob(audioChunks, { type: "audio/webm" });
       const base64 = await blobToBase64(blob);
 
-      addMessage("user", "🎤 [áudio]", new Date(), true);
-      await sendAudioToGateway(base64);
+      // Show audio message placeholder - will be updated with transcript
+      const audioMsgEl = addMessage("user", "🎤 Transcrevendo...", new Date(), true);
+      await sendAudioToGateway(base64, audioMsgEl);
     };
 
     mediaRecorder.start(100);
@@ -283,7 +284,7 @@ function updateRecTime() {
   recTimeEl.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-async function sendAudioToGateway(base64Audio) {
+async function sendAudioToGateway(base64Audio, audioMsgEl) {
   showTyping();
 
   try {
@@ -339,9 +340,9 @@ async function sendAudioToGateway(base64Audio) {
     }
 
     // Update the user message with the transcript
-    const lastUserMsg = messagesEl.querySelector(".message.user:last-of-type .text");
-    if (lastUserMsg) {
-      lastUserMsg.textContent = transcript;
+    if (audioMsgEl) {
+      const textEl = audioMsgEl.querySelector(".text");
+      if (textEl) textEl.textContent = transcript;
     }
 
     // Step 2: Send transcribed text to OpenClaw
@@ -396,6 +397,7 @@ function addMessage(sender, text, time, isAudio = false) {
 
   messagesEl.appendChild(el);
   scrollToBottom();
+  return el;
 }
 
 function showTyping() {
