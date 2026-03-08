@@ -1,4 +1,7 @@
 {
+  "identifier": "eae-claw-default",
+  "description": "Default permissions for Eae Claw",
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "shell:allow-open"
