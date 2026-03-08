@@ -6,6 +6,8 @@ const GATEWAY_TOKEN = localStorage.getItem("claw-token") || "";
 
 // Dynamic import - works in Tauri, falls back to fetch for browser dev
 let tauriFetch = null;
+let tauriFs = null;
+let tauriPath = null;
 async function loadTauriFetch() {
   try {
     const mod = await import("@tauri-apps/plugin-http");
@@ -15,6 +17,14 @@ async function loadTauriFetch() {
     tauriFetch = window.fetch.bind(window);
     console.log("Tauri HTTP plugin not available, using browser fetch");
   }
+  try {
+    tauriFs = await import("@tauri-apps/plugin-fs");
+    const pathMod = await import("@tauri-apps/api/path");
+    tauriPath = pathMod;
+    console.log("Using Tauri FS plugin for persistent history");
+  } catch {
+    console.log("Tauri FS not available, using localStorage");
+  }
 }
 
 // --- State ---
@@ -23,7 +33,48 @@ let mediaRecorder = null;
 let audioChunks = [];
 let recStartTime = null;
 let recTimer = null;
-let chatHistory = JSON.parse(localStorage.getItem("claw-chat-history") || "[]");
+let chatHistory = [];
+
+// --- Persistent history via Tauri FS (survives app restarts) ---
+const HISTORY_FILE = "chat-history.json";
+
+async function loadHistory() {
+  try {
+    if (tauriFs && tauriPath) {
+      const appDataDir = await tauriPath.appDataDir();
+      const filePath = `${appDataDir}${HISTORY_FILE}`;
+      const exists = await tauriFs.exists(filePath);
+      if (exists) {
+        const content = await tauriFs.readTextFile(filePath);
+        chatHistory = JSON.parse(content);
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn("FS history load failed, trying localStorage:", err);
+  }
+  // Fallback to localStorage
+  chatHistory = JSON.parse(localStorage.getItem("claw-chat-history") || "[]");
+}
+
+async function saveHistory() {
+  try {
+    if (tauriFs && tauriPath) {
+      const appDataDir = await tauriPath.appDataDir();
+      // Ensure directory exists
+      const dirExists = await tauriFs.exists(appDataDir);
+      if (!dirExists) {
+        await tauriFs.mkdir(appDataDir, { recursive: true });
+      }
+      await tauriFs.writeTextFile(`${appDataDir}${HISTORY_FILE}`, JSON.stringify(chatHistory));
+      return;
+    }
+  } catch (err) {
+    console.warn("FS history save failed, using localStorage:", err);
+  }
+  // Fallback to localStorage
+  localStorage.setItem("claw-chat-history", JSON.stringify(chatHistory));
+}
 
 // --- DOM ---
 const messagesEl = document.getElementById("messages");
@@ -41,6 +92,7 @@ init();
 
 async function init() {
   await loadTauriFetch();
+  await loadHistory();
 
   // Check for saved token, prompt if missing
   if (!GATEWAY_TOKEN) {
@@ -423,7 +475,7 @@ function addMessage(sender, text, time, isAudio = false) {
   // Save to history
   chatHistory.push({ sender, text, time: time.toISOString(), isAudio });
   if (chatHistory.length > 200) chatHistory = chatHistory.slice(-200);
-  localStorage.setItem("claw-chat-history", JSON.stringify(chatHistory));
+  saveHistory();
 
   return el;
 }
