@@ -72,13 +72,19 @@ function promptToken() {
 async function checkConnection() {
   setStatus("connecting");
   try {
-    const res = await fetch(`${GATEWAY_URL}/api/health`, {
-      headers: { Authorization: `Bearer ${GATEWAY_TOKEN}` },
+    // Use /tools/invoke with session_status as a health check
+    const res = await fetch(`${GATEWAY_URL}/tools/invoke`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${GATEWAY_TOKEN}`,
+      },
+      body: JSON.stringify({ tool: "session_status" }),
       signal: AbortSignal.timeout(5000),
     });
     if (res.ok) {
       setStatus("online");
-    } else if (res.status === 401) {
+    } else if (res.status === 401 || res.status === 403) {
       setStatus("offline");
       addMessage("claw", "⚠️ Token inválido. Clica no status pra reconfigurar.", new Date());
       statusDot.style.cursor = "pointer";
@@ -88,6 +94,7 @@ async function checkConnection() {
       };
     } else {
       setStatus("offline");
+      addMessage("claw", `⚠️ Gateway respondeu com status ${res.status}.`, new Date());
     }
   } catch {
     setStatus("offline");
@@ -116,28 +123,20 @@ async function sendText() {
 }
 
 // --- Send to OpenClaw gateway ---
-async function sendToGateway(text, audioBase64 = null) {
+async function sendToGateway(text) {
   showTyping();
 
   try {
-    const body = {
-      message: text,
-    };
-
-    if (audioBase64) {
-      body.audio = audioBase64;
-    }
-
-    const res = await fetch(`${GATEWAY_URL}/api/tools/invoke`, {
+    const res = await fetch(`${GATEWAY_URL}/tools/invoke`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${GATEWAY_TOKEN}`,
       },
       body: JSON.stringify({
-        tool: "agent_turn",
+        tool: "sessions_send",
         params: {
-          message: text || "[audio]",
+          message: text,
           sessionKey: "agent:main:main",
         },
       }),
@@ -153,12 +152,34 @@ async function sendToGateway(text, audioBase64 = null) {
     }
 
     const data = await res.json();
-    const reply = data?.result?.message || data?.result?.text || data?.message || JSON.stringify(data);
+    // sessions_send returns the agent's reply
+    const reply = extractReply(data);
     addMessage("claw", reply, new Date());
   } catch (err) {
     hideTyping();
     addMessage("claw", `⚠️ Erro de conexão: ${err.message}`, new Date());
   }
+}
+
+// --- Extract reply text from various response shapes ---
+function extractReply(data) {
+  // Try common response shapes
+  if (data?.result?.content) {
+    // Array of content blocks
+    if (Array.isArray(data.result.content)) {
+      return data.result.content
+        .filter((b) => b.type === "text")
+        .map((b) => b.text)
+        .join("\n");
+    }
+    return String(data.result.content);
+  }
+  if (data?.result?.message) return data.result.message;
+  if (data?.result?.text) return data.result.text;
+  if (data?.result?.reply) return data.result.reply;
+  if (data?.message) return data.message;
+  if (typeof data?.result === "string") return data.result;
+  return JSON.stringify(data, null, 2);
 }
 
 // --- Audio recording ---
@@ -242,23 +263,19 @@ async function sendAudioToGateway(base64Audio) {
   showTyping();
 
   try {
-    // Use the webhook endpoint to send audio as a message
-    const res = await fetch(`${GATEWAY_URL}/api/tools/invoke`, {
+    // For now, send audio as a text message indicating voice
+    // TODO: integrate with Whisper transcription endpoint
+    const res = await fetch(`${GATEWAY_URL}/tools/invoke`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${GATEWAY_TOKEN}`,
       },
       body: JSON.stringify({
-        tool: "session_message",
+        tool: "sessions_send",
         params: {
           sessionKey: "agent:main:main",
-          message: "[audio message from Eae Claw desktop app]",
-          media: {
-            data: base64Audio,
-            mimeType: "audio/webm",
-            filename: "voice.webm",
-          },
+          message: "[Mensagem de voz do Eae Claw - áudio não suportado ainda, use texto por enquanto]",
         },
       }),
       signal: AbortSignal.timeout(120000),
@@ -273,7 +290,7 @@ async function sendAudioToGateway(base64Audio) {
     }
 
     const data = await res.json();
-    const reply = data?.result?.message || data?.result?.text || data?.message || JSON.stringify(data);
+    const reply = extractReply(data);
     addMessage("claw", reply, new Date());
   } catch (err) {
     hideTyping();
