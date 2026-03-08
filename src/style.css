@@ -457,12 +457,15 @@ body.mini-mode .logo {
   font-size: 18px;
 }
 
-body.mini-mode #app {
-  background: transparent;
-}
-
 body.mini-mode {
   background: transparent;
+  overflow: hidden;
+}
+
+body.mini-mode #app {
+  background: transparent;
+  height: auto;
+  overflow: hidden;
 }
 
 /* Drag & drop */

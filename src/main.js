@@ -229,7 +229,7 @@ async function toggleMiniMode() {
       // Switch to mini mode
       await tauriWindow.setAlwaysOnTop(true);
       await tauriWindow.setDecorations(false);
-      await tauriWindow.setSize(new LogicalSize(320, 60));
+      await tauriWindow.setSize(new LogicalSize(320, 48));
 
       // Position at bottom-left, over Windows taskbar
       try {
@@ -239,7 +239,7 @@ async function toggleMiniMode() {
           const factor = await tauriWindow.scaleFactor();
           // Use full screen height (not work area) to go over taskbar
           const screenH = Math.round(monitor.size.height / factor);
-          await tauriWindow.setPosition(new LogicalPosition(0, screenH - 60));
+          await tauriWindow.setPosition(new LogicalPosition(0, screenH - 48));
         }
       } catch (posErr) {
         console.warn("Could not position mini window:", posErr);
