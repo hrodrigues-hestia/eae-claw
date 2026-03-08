@@ -10,7 +10,6 @@
     "beforeBuildCommand": "npm run build"
   },
   "app": {
-    "title": "Eae Claw 🦀",
     "windows": [
       {
         "title": "Eae Claw 🦀",
