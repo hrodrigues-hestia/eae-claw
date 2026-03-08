@@ -172,22 +172,39 @@ async function sendToGateway(text) {
 
 // --- Extract reply text from various response shapes ---
 function extractReply(data) {
-  // sessions_send returns { ok, result: { runId, status, reply, ... } }
-  if (data?.result?.reply) return data.result.reply;
-  if (data?.result?.content) {
-    if (Array.isArray(data.result.content)) {
-      return data.result.content
-        .filter((b) => b.type === "text")
-        .map((b) => b.text)
-        .join("\n");
-    }
-    return String(data.result.content);
+  // The API returns: { ok, result: { content: [{ type: "text", text: "..." }], details: {...} } }
+  // The text field contains JSON string with { runId, status, reply, ... }
+  
+  // First, extract the text content
+  let text = "";
+  if (data?.result?.content && Array.isArray(data.result.content)) {
+    text = data.result.content
+      .filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("\n");
+  } else if (data?.result?.reply) {
+    return data.result.reply;
+  } else if (data?.result?.message) {
+    return data.result.message;
+  } else if (typeof data?.result === "string") {
+    text = data.result;
   }
-  if (data?.result?.message) return data.result.message;
-  if (data?.result?.text) return data.result.text;
-  if (data?.message) return data.message;
-  if (typeof data?.result === "string") return data.result;
-  return JSON.stringify(data, null, 2);
+
+  // Try to parse the text as JSON to extract the reply field
+  if (text) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed.reply) return parsed.reply;
+      if (parsed.message) return parsed.message;
+      if (parsed.text) return parsed.text;
+      if (parsed.status === "timeout") return "⏱️ Timeout — tenta de novo.";
+    } catch {
+      // Not JSON, return as-is
+      return text;
+    }
+  }
+
+  return text || JSON.stringify(data, null, 2);
 }
 
 // --- Audio recording ---
