@@ -199,50 +199,65 @@ async function init() {
 
 // --- Mini mode ---
 async function toggleMiniMode() {
-  if (!tauriWindow) return;
-
-  if (!isMiniMode) {
-    // Save current size/position
-    const factor = await tauriWindow.scaleFactor();
-    const size = await tauriWindow.outerSize();
-    const pos = await tauriWindow.outerPosition();
-    savedBounds = {
-      width: size.width / factor,
-      height: size.height / factor,
-      x: pos.x / factor,
-      y: pos.y / factor,
-    };
-
-    // Switch to mini mode
-    await tauriWindow.setDecorations(false);
-    await tauriWindow.setAlwaysOnTop(true);
-    await tauriWindow.setSize(new (await import("@tauri-apps/api/dpi")).LogicalSize(320, 60));
-
-    // Position at bottom-right of screen
-    const monitor = await tauriWindow.currentMonitor();
-    if (monitor) {
-      const screenW = monitor.size.width / factor;
-      const screenH = monitor.size.height / factor;
-      const LogicalPosition = (await import("@tauri-apps/api/dpi")).LogicalPosition;
-      await tauriWindow.setPosition(new LogicalPosition(screenW - 340, screenH - 100));
+  try {
+    // Lazy load window API
+    if (!tauriWindow) {
+      try {
+        const winMod = await import("@tauri-apps/api/window");
+        tauriWindow = winMod.getCurrentWindow();
+      } catch (err) {
+        console.error("Cannot load window API:", err);
+        return;
+      }
     }
 
-    document.body.classList.add("mini-mode");
-    isMiniMode = true;
-  } else {
-    // Restore full mode
-    await tauriWindow.setDecorations(true);
-    await tauriWindow.setAlwaysOnTop(false);
+    const { LogicalSize, LogicalPosition } = await import("@tauri-apps/api/dpi");
 
-    if (savedBounds) {
-      const LogicalSize = (await import("@tauri-apps/api/dpi")).LogicalSize;
-      const LogicalPosition = (await import("@tauri-apps/api/dpi")).LogicalPosition;
-      await tauriWindow.setSize(new LogicalSize(savedBounds.width, savedBounds.height));
-      await tauriWindow.setPosition(new LogicalPosition(savedBounds.x, savedBounds.y));
+    if (!isMiniMode) {
+      // Save current size/position
+      const factor = await tauriWindow.scaleFactor();
+      const size = await tauriWindow.outerSize();
+      const pos = await tauriWindow.outerPosition();
+      savedBounds = {
+        width: Math.round(size.width / factor),
+        height: Math.round(size.height / factor),
+        x: Math.round(pos.x / factor),
+        y: Math.round(pos.y / factor),
+      };
+
+      // Switch to mini mode
+      await tauriWindow.setAlwaysOnTop(true);
+      await tauriWindow.setDecorations(false);
+      await tauriWindow.setSize(new LogicalSize(320, 60));
+
+      // Position at bottom-right of screen
+      const monitor = await tauriWindow.currentMonitor();
+      if (monitor) {
+        const screenW = Math.round(monitor.size.width / factor);
+        const screenH = Math.round(monitor.size.height / factor);
+        await tauriWindow.setPosition(new LogicalPosition(screenW - 340, screenH - 100));
+      }
+
+      document.body.classList.add("mini-mode");
+      isMiniMode = true;
+      console.log("Switched to mini mode");
+    } else {
+      // Restore full mode
+      await tauriWindow.setAlwaysOnTop(false);
+      await tauriWindow.setDecorations(true);
+
+      if (savedBounds) {
+        await tauriWindow.setSize(new LogicalSize(savedBounds.width, savedBounds.height));
+        await tauriWindow.setPosition(new LogicalPosition(savedBounds.x, savedBounds.y));
+      }
+
+      document.body.classList.remove("mini-mode");
+      isMiniMode = false;
+      console.log("Restored full mode");
     }
-
-    document.body.classList.remove("mini-mode");
-    isMiniMode = false;
+  } catch (err) {
+    console.error("Mini mode error:", err);
+    alert("Mini mode error: " + err.message);
   }
 }
 
