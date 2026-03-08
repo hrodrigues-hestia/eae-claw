@@ -231,11 +231,18 @@ async function toggleMiniMode() {
       await tauriWindow.setSize(new LogicalSize(320, 60));
 
       // Position at bottom-right of screen
-      const monitor = await tauriWindow.currentMonitor();
-      if (monitor) {
-        const screenW = Math.round(monitor.size.width / factor);
-        const screenH = Math.round(monitor.size.height / factor);
-        await tauriWindow.setPosition(new LogicalPosition(screenW - 340, screenH - 100));
+      try {
+        const { currentMonitor } = await import("@tauri-apps/api/window");
+        const monitor = await currentMonitor();
+        if (monitor) {
+          const factor = await tauriWindow.scaleFactor();
+          const screenW = Math.round(monitor.size.width / factor);
+          const screenH = Math.round(monitor.size.height / factor);
+          await tauriWindow.setPosition(new LogicalPosition(screenW - 340, screenH - 100));
+        }
+      } catch (posErr) {
+        console.warn("Could not position mini window:", posErr);
+        // Still works, just won't auto-position
       }
 
       document.body.classList.add("mini-mode");
