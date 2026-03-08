@@ -128,6 +128,34 @@ async function init() {
     }
   });
 
+  // Drag & drop files
+  const chatContainer = document.getElementById("chat-container");
+  chatContainer.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    chatContainer.classList.add("drag-over");
+  });
+  chatContainer.addEventListener("dragleave", () => {
+    chatContainer.classList.remove("drag-over");
+  });
+  chatContainer.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    chatContainer.classList.remove("drag-over");
+    await handleFileDrop(e.dataTransfer.files);
+  });
+
+  // File input (click to attach)
+  const fileInput = document.getElementById("file-input");
+  const btnAttach = document.getElementById("btn-attach");
+  if (btnAttach && fileInput) {
+    btnAttach.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", async (e) => {
+      if (e.target.files.length > 0) {
+        await handleFileDrop(e.target.files);
+        fileInput.value = "";
+      }
+    });
+  }
+
   // Welcome message or restore history
   if (chatHistory.length > 0) {
     restoreHistory();
@@ -315,6 +343,63 @@ function extractReply(data) {
   }
 
   return text || JSON.stringify(data, null, 2);
+}
+
+// --- File drop/attach handler ---
+async function handleFileDrop(files) {
+  for (const file of files) {
+    const sizeMb = (file.size / 1024 / 1024).toFixed(1);
+    addMessage("user", `📎 ${file.name} (${sizeMb} MB)`, new Date());
+
+    // Read file content based on type
+    let messageText = "";
+
+    if (file.type.startsWith("text/") || file.name.match(/\.(md|json|txt|csv|log|js|ts|py|rs|toml|yaml|yml|xml|html|css|sql|sh|bat|ps1)$/i)) {
+      // Text files - read content directly
+      const text = await file.text();
+      const truncated = text.length > 50000 ? text.substring(0, 50000) + "\n\n[...truncado, arquivo muito grande]" : text;
+      messageText = `Arquivo: ${file.name}\n\n\`\`\`\n${truncated}\n\`\`\``;
+    } else if (file.type.startsWith("image/")) {
+      // Images - send as base64
+      const base64 = await fileToBase64(file);
+      messageText = `[Imagem: ${file.name}]\n${base64}`;
+    } else {
+      // Other files - just notify
+      messageText = `Arquivo recebido: ${file.name} (${file.type || "tipo desconhecido"}, ${sizeMb} MB). Não consigo ler esse formato diretamente, mas posso ajudar se você colar o conteúdo.`;
+    }
+
+    showTyping();
+    try {
+      const res = await gatewayPost("sessions_send", {
+        message: messageText,
+        sessionKey: "agent:main:main",
+        timeoutSeconds: 120,
+      });
+
+      hideTyping();
+
+      if (!res.ok) {
+        const errText = await res.text();
+        addMessage("claw", `⚠️ Erro (${res.status}): ${errText}`, new Date());
+        return;
+      }
+
+      const data = await res.json();
+      const reply = extractReply(data);
+      addMessage("claw", reply, new Date());
+    } catch (err) {
+      hideTyping();
+      addMessage("claw", `⚠️ Erro: ${err.message}`, new Date());
+    }
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.readAsDataURL(file);
+  });
 }
 
 // --- Audio recording ---

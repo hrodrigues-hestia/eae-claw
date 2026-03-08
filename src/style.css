@@ -296,7 +296,7 @@ html, body {
   color: var(--text-secondary);
 }
 
-#btn-send, #btn-mic {
+#btn-send, #btn-mic, #btn-attach {
   width: 40px;
   height: 40px;
   border: none;
@@ -317,13 +317,13 @@ html, body {
   background: var(--accent-hover);
 }
 
-#btn-mic {
+#btn-mic, #btn-attach {
   background: transparent;
   color: var(--text-secondary);
   border: 1px solid var(--border);
 }
 
-#btn-mic:hover {
+#btn-mic:hover, #btn-attach:hover {
   color: var(--accent);
   border-color: var(--accent);
 }
@@ -380,6 +380,12 @@ html, body {
 
 #btn-cancel-rec:hover {
   color: var(--accent);
+}
+
+/* Drag & drop */
+#chat-container.drag-over {
+  background: rgba(233, 69, 96, 0.05);
+  border: 2px dashed var(--accent);
 }
 
 /* Scrollbar */
