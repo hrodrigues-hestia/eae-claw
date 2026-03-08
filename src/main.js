@@ -231,18 +231,22 @@ async function toggleMiniMode() {
       await tauriWindow.setDecorations(false);
       await tauriWindow.setSize(new LogicalSize(320, 60));
 
-      // Position at bottom-left, flush to edge (over Windows widget bar)
+      // Position at bottom-left, over Windows taskbar
       try {
         const { currentMonitor } = await import("@tauri-apps/api/window");
         const monitor = await currentMonitor();
         if (monitor) {
           const factor = await tauriWindow.scaleFactor();
+          // Use full screen height (not work area) to go over taskbar
           const screenH = Math.round(monitor.size.height / factor);
           await tauriWindow.setPosition(new LogicalPosition(0, screenH - 60));
         }
       } catch (posErr) {
         console.warn("Could not position mini window:", posErr);
       }
+
+      // Force on top again after positioning (ensures above taskbar)
+      await tauriWindow.setAlwaysOnTop(true);
 
       document.body.classList.add("mini-mode");
       isMiniMode = true;
@@ -282,6 +286,11 @@ function updateUnreadBadge() {
 
 async function registerGlobalHotkey() {
   if (!tauriShortcut) return;
+  
+  // Unregister first in case of hot reload
+  try { await tauriShortcut.unregister("F19"); } catch {}
+  try { await tauriShortcut.unregister("F18"); } catch {}
+  
   try {
     await tauriShortcut.register("F19", (event) => {
       if (event.state === "Pressed") {
