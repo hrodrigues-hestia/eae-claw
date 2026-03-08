@@ -151,6 +151,7 @@ async function sendToGateway(text) {
     const res = await gatewayPost("sessions_send", {
       message: text,
       sessionKey: "agent:main:main",
+      timeoutSeconds: 120,
     });
 
     hideTyping();
@@ -347,6 +348,7 @@ async function sendAudioToGateway(base64Audio) {
     const res = await gatewayPost("sessions_send", {
       message: transcript,
       sessionKey: "agent:main:main",
+      timeoutSeconds: 120,
     });
 
     hideTyping();
