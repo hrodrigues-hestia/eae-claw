@@ -391,7 +391,7 @@ function addMessage(sender, text, time, isAudio = false) {
   el.innerHTML = `
     <div class="sender">${senderName}</div>
     ${isAudio ? '<div class="audio-tag">🎤 Mensagem de voz</div>' : ""}
-    <div class="text">${escapeHtml(text)}</div>
+    <div class="text">${renderMarkdown(text)}</div>
     <div class="meta">${timeStr}</div>
   `;
 
@@ -423,6 +423,53 @@ function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
+}
+
+// Simple Markdown renderer
+function renderMarkdown(text) {
+  let html = escapeHtml(text);
+
+  // Code blocks (```...```)
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    return `<pre><code class="lang-${lang}">${code.trim()}</code></pre>`;
+  });
+
+  // Inline code (`...`)
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Bold (**...**)
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+  // Italic (*...*)
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // Strikethrough (~~...~~)
+  html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
+
+  // Headers (### ... / ## ... / # ...)
+  html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
+
+  // Unordered lists (- item / * item)
+  html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+
+  // Ordered lists (1. item)
+  html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+
+  // Links [text](url)
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+  // Line breaks
+  html = html.replace(/\n/g, '<br>');
+
+  // Clean up <br> inside <pre>
+  html = html.replace(/<pre><code([^>]*)>([\s\S]*?)<\/code><\/pre>/g, (match, cls, code) => {
+    return `<pre><code${cls}>${code.replace(/<br>/g, '\n')}</code></pre>`;
+  });
+
+  return html;
 }
 
 function blobToBase64(blob) {
