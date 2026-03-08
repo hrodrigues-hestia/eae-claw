@@ -8,6 +8,7 @@ const GATEWAY_TOKEN = localStorage.getItem("claw-token") || "";
 let tauriFetch = null;
 let tauriFs = null;
 let tauriPath = null;
+let tauriShortcut = null;
 async function loadTauriFetch() {
   try {
     const mod = await import("@tauri-apps/plugin-http");
@@ -24,6 +25,12 @@ async function loadTauriFetch() {
     console.log("Using Tauri FS plugin for persistent history");
   } catch {
     console.log("Tauri FS not available, using localStorage");
+  }
+  try {
+    tauriShortcut = await import("@tauri-apps/plugin-global-shortcut");
+    console.log("Global shortcut plugin loaded");
+  } catch {
+    console.log("Global shortcut not available");
   }
 }
 
@@ -125,7 +132,35 @@ async function init() {
   if (chatHistory.length > 0) {
     restoreHistory();
   } else {
-    addMessage("claw", "Eae! 🦀 Manda texto ou clica no microfone pra falar.", new Date());
+    addMessage("claw", "Eae! 🦀 Manda texto ou clica no microfone pra falar.\n\n**F19** — gravar/enviar áudio (global)\n**Ctrl+Shift+C** — gravar/enviar áudio", new Date());
+  }
+
+  // Register F19 global hotkey
+  registerGlobalHotkey();
+}
+
+async function registerGlobalHotkey() {
+  if (!tauriShortcut) return;
+  try {
+    await tauriShortcut.register("F19", (event) => {
+      if (event.state === "Pressed") {
+        toggleRecording();
+      }
+    });
+    console.log("F19 global hotkey registered");
+  } catch (err) {
+    console.warn("Failed to register F19:", err);
+    // F19 might not be recognized, try as a fallback
+    try {
+      await tauriShortcut.register("F24", (event) => {
+        if (event.state === "Pressed") {
+          toggleRecording();
+        }
+      });
+      console.log("F24 global hotkey registered (fallback)");
+    } catch (err2) {
+      console.warn("Failed to register fallback hotkey:", err2);
+    }
   }
 }
 
