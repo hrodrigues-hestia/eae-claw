@@ -12,6 +12,7 @@ let tauriShortcut = null;
 let tauriWindow = null;
 let isMiniMode = false;
 let savedBounds = null;
+let unreadCount = 0;
 async function loadTauriFetch() {
   try {
     const mod = await import("@tauri-apps/plugin-http");
@@ -230,19 +231,17 @@ async function toggleMiniMode() {
       await tauriWindow.setDecorations(false);
       await tauriWindow.setSize(new LogicalSize(320, 60));
 
-      // Position at bottom-right of screen
+      // Position at bottom-left of screen (70px from left edge)
       try {
         const { currentMonitor } = await import("@tauri-apps/api/window");
         const monitor = await currentMonitor();
         if (monitor) {
           const factor = await tauriWindow.scaleFactor();
-          const screenW = Math.round(monitor.size.width / factor);
           const screenH = Math.round(monitor.size.height / factor);
-          await tauriWindow.setPosition(new LogicalPosition(screenW - 340, screenH - 100));
+          await tauriWindow.setPosition(new LogicalPosition(70, screenH - 100));
         }
       } catch (posErr) {
         console.warn("Could not position mini window:", posErr);
-        // Still works, just won't auto-position
       }
 
       document.body.classList.add("mini-mode");
@@ -260,11 +259,24 @@ async function toggleMiniMode() {
 
       document.body.classList.remove("mini-mode");
       isMiniMode = false;
+      unreadCount = 0;
+      updateUnreadBadge();
       console.log("Restored full mode");
     }
   } catch (err) {
     console.error("Mini mode error:", err);
     alert("Mini mode error: " + (err?.message || err?.toString() || JSON.stringify(err)));
+  }
+}
+
+function updateUnreadBadge() {
+  const badge = document.getElementById("unread-badge");
+  if (!badge) return;
+  if (unreadCount > 0) {
+    badge.textContent = unreadCount;
+    badge.classList.remove("hidden");
+  } else {
+    badge.classList.add("hidden");
   }
 }
 
@@ -539,6 +551,7 @@ async function startRecording() {
     recStartTime = Date.now();
 
     btnMic.classList.add("recording");
+    document.body.classList.add("recording");
     recIndicator.classList.remove("hidden");
     updateRecTime();
     recTimer = setInterval(updateRecTime, 1000);
@@ -553,6 +566,7 @@ function stopRecording() {
   }
   isRecording = false;
   btnMic.classList.remove("recording");
+  document.body.classList.remove("recording");
   recIndicator.classList.add("hidden");
   clearInterval(recTimer);
 }
@@ -567,6 +581,7 @@ function cancelRecording() {
   }
   isRecording = false;
   btnMic.classList.remove("recording");
+  document.body.classList.remove("recording");
   recIndicator.classList.add("hidden");
   clearInterval(recTimer);
 }
@@ -696,6 +711,12 @@ function addMessage(sender, text, time, isAudio = false) {
   chatHistory.push({ sender, text, time: time.toISOString(), isAudio });
   if (chatHistory.length > 200) chatHistory = chatHistory.slice(-200);
   saveHistory();
+
+  // Track unread in mini mode
+  if (isMiniMode && sender === "claw") {
+    unreadCount++;
+    updateUnreadBadge();
+  }
 
   return el;
 }
