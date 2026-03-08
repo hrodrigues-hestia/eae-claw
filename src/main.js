@@ -286,10 +286,67 @@ async function sendAudioToGateway(base64Audio) {
   showTyping();
 
   try {
-    // TODO: integrate with Whisper transcription
+    // Step 1: Transcribe audio via OpenAI Whisper API directly
+    const audioBlob = base64ToBlob(base64Audio, "audio/webm");
+    const formData = new FormData();
+    formData.append("file", audioBlob, "voice.webm");
+    formData.append("model", "whisper-1");
+    formData.append("language", "pt");
+
+    // Get OpenAI key from gateway config or use stored one
+    let openaiKey = localStorage.getItem("claw-openai-key") || "";
+    if (!openaiKey) {
+      openaiKey = prompt("Eae Claw 🦀\n\nPra transcrever áudio, preciso da OpenAI API key:\n(OPENAI_API_KEY)");
+      if (openaiKey) {
+        localStorage.setItem("claw-openai-key", openaiKey.trim());
+      } else {
+        hideTyping();
+        addMessage("claw", "⚠️ Sem API key do OpenAI, não consigo transcrever áudio.", new Date());
+        return;
+      }
+    }
+
+    let transcript = "";
+    try {
+      const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${openaiKey}`,
+        },
+        body: formData,
+      });
+
+      if (!whisperRes.ok) {
+        const err = await whisperRes.text();
+        hideTyping();
+        addMessage("claw", `⚠️ Erro Whisper (${whisperRes.status}): ${err}`, new Date());
+        return;
+      }
+
+      const whisperData = await whisperRes.json();
+      transcript = whisperData.text || "";
+    } catch (err) {
+      hideTyping();
+      addMessage("claw", `⚠️ Erro ao transcrever: ${err.message}`, new Date());
+      return;
+    }
+
+    if (!transcript.trim()) {
+      hideTyping();
+      addMessage("claw", "⚠️ Não consegui transcrever o áudio. Tenta de novo.", new Date());
+      return;
+    }
+
+    // Update the user message with the transcript
+    const lastUserMsg = messagesEl.querySelector(".message.user:last-of-type .text");
+    if (lastUserMsg) {
+      lastUserMsg.textContent = transcript;
+    }
+
+    // Step 2: Send transcribed text to OpenClaw
     const res = await gatewayPost("sessions_send", {
+      message: transcript,
       sessionKey: "agent:main:main",
-      message: "[Mensagem de voz do Eae Claw - áudio não suportado ainda, use texto por enquanto]",
     });
 
     hideTyping();
@@ -307,6 +364,17 @@ async function sendAudioToGateway(base64Audio) {
     hideTyping();
     addMessage("claw", `⚠️ Erro: ${err.message}`, new Date());
   }
+}
+
+// Convert base64 data URL to Blob
+function base64ToBlob(dataUrl, mimeType) {
+  const base64 = dataUrl.split(",")[1];
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mimeType });
 }
 
 // --- UI helpers ---
