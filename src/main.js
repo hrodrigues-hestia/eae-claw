@@ -660,6 +660,15 @@ async function sendAudioToGateway(base64Audio, audioMsgEl) {
     if (audioMsgEl) {
       const textEl = audioMsgEl.querySelector(".text");
       if (textEl) textEl.textContent = transcript;
+
+      // Also update the chatHistory entry so it persists the transcript, not "Transcrevendo..."
+      const historyIdx = chatHistory.findLastIndex(
+        (m) => m.sender === "user" && m.text === "🎤 Transcrevendo..."
+      );
+      if (historyIdx !== -1) {
+        chatHistory[historyIdx].text = transcript;
+        saveHistory();
+      }
     }
 
     // Step 2: Send transcribed text to OpenClaw
