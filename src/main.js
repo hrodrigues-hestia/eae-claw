@@ -780,6 +780,36 @@ function renderMarkdown(text) {
   html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
   html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
 
+  // Tables (| col | col | ... with separator row)
+  html = html.replace(/(^\|.+\|$\n?)+/gm, (tableBlock) => {
+    const rows = tableBlock.trim().split('\n');
+    let thead = '';
+    let tbody = '';
+    let headerDone = false;
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i].trim();
+      if (!row.startsWith('|')) continue;
+
+      // Parse cells: split by |, trim, remove empty first/last
+      const cells = row.split('|').slice(1, -1).map(c => c.trim());
+
+      // Check if separator row (|---|---|)
+      if (cells.every(c => /^[\-:]+$/.test(c))) {
+        headerDone = true;
+        continue;
+      }
+
+      if (!headerDone && i === 0) {
+        thead = '<thead><tr>' + cells.map(c => `<th>${c}</th>`).join('') + '</tr></thead>';
+      } else {
+        tbody += '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
+      }
+    }
+
+    return `<table>${thead}<tbody>${tbody}</tbody></table>`;
+  });
+
   // Unordered lists (- item / * item)
   html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
   html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
